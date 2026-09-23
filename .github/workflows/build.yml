@@ -1,0 +1,38 @@
+name: Fetch Private JS and Deploy
+
+on:
+  push:
+    branches:
+      - main # يعمل هذا السكربت تلقائياً عند أي تعديل على فرع main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. سحب كود المستودع العام الحالي
+      - name: Checkout Public Repo
+        uses: actions/checkout@v4
+
+      # 2. سحب كود المستودع الخاص باستخدام الرمز السري (PAT)
+      - name: Checkout Private Repo
+        uses: actions/checkout@v4
+        with:
+          repository: CyberUser-Linux/formePrivatet # استبدلها ببياناتك
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+          path: private-temp-folder # مسار مؤقت لحفظ كود المستودع الخاص
+
+      # 3. نقل ملف الجافاسكريبت إلى مسار المستودع العام
+      - name: Copy JS File
+        run: |
+          # نسخ الملف من المجلد المؤقت إلى المجلد الذي يحتوي على ملف HTML
+          cp private-temp-folder/alertjoo.js ./alertjoo.js
+          
+          # مسح المجلد الخاص بعد أخذ الملف لعدم رفعه بالخطأ
+          rm -rf private-temp-folder 
+
+      # 4. نشر الصفحة إلى GitHub Pages (مثال إذا كنت تستخدم Pages)
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./ # المسار الذي يحتوي على ملفات HTML و JS النهائية
