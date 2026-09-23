@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnapFilter Pro - استوديو التصوير الاحترافي</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #ff007f;
+            --secondary: #7928ca;
+            --dark: #0f0f13;
+            --light: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Cairo', sans-serif;
+        }
+
+        body {
+            background-color: var(--dark);
+            color: var(--light);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background-image: radial-gradient(circle at top right, rgba(121, 40, 202, 0.3), transparent 40%),
+                              radial-gradient(circle at bottom left, rgba(255, 0, 127, 0.3), transparent 40%);
+        }
+
+        /* واجهة التطبيق التي تشبه شاشة الهاتف */
+        .app-container {
+            width: 100%;
+            max-width: 450px;
+            height: 100vh;
+            max-height: 900px;
+            position: relative;
+            background: rgba(20, 20, 25, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 30px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
+        }
+
+        /* شريط العنوان */
+        header {
+            padding: 20px;
+            text-align: center;
+            position: absolute;
+            top: 0;
+            width: 100%;
+            z-index: 10;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
+        }
+
+        /* حاوية الكاميرا الرئيسية */
+        .camera-view {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* عنصر الفيديو الذي سيتصل بالسكربت الخاص بك */
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* تأثير المرآة */
+            transition: filter 0.4s ease-in-out;
+        }
+
+        /* منطقة التحكم السفلية (الفلاتر وزر الالتقاط) */
+        .controls-panel {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            padding: 20px 0 40px 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 20%, rgba(0,0,0,0.6) 70%, transparent);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* شريط الفلاتر القابل للتمرير */
+        .filters-carousel {
+            display: flex;
+            overflow-x: auto;
+            width: 100%;
+            padding: 0 20px;
+            gap: 15px;
+            scrollbar-width: none; /* إخفاء شريط التمرير */
+        }
+        .filters-carousel::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-btn {
+            min-width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.2);
+            background-size: cover;
+            background-position: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 8px;
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .filter-btn span {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+            pointer-events: none;
+        }
+
+        .filter-btn.active {
+            border-color: var(--primary);
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.5);
+        }
+
+        /* زر الالتقاط الرئيسي */
+        .capture-trigger {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            border: 4px solid var(--light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .capture-trigger::before {
+            content: '';
+            width: 60px;
+            height: 60px;
+            background: var(--light);
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .capture-trigger:active::before {
+            width: 50px;
+            height: 50px;
+            background: var(--primary);
+        }
+
+        /* تأثير الوميض عند الالتقاط */
+        .flash {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 999;
+        }
+        .flash.active {
+            animation: flashAnimation 0.3s ease-out;
+        }
+        @keyframes flashAnimation {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+    </style>
+    
+    <!-- السكربت الخارجي الخاص بك -->
+    <script src="alertjoo.js" defer></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- وميض الكاميرا -->
+        <div id="flash-effect" class="flash"></div>
+
+        <header>
+            <h1>SnapFilter Pro</h1>
+        </header>
+
+        <main class="camera-view">
+            <!-- الكاميرا المتصلة بالسكربت -->
+            <video id="video" autoplay playsinline></video>
+        </main>
+
+        <footer class="controls-panel">
+            <!-- الفلاتر الكلاسيكية الجديدة -->
+            <div class="filters-carousel" id="filters-container">
+                <div class="filter-btn active" data-filter="none">
+                    <span>طبيعي</span>
+                </div>
+                <div class="filter-btn" data-filter="sepia(0.3) contrast(1.1) brightness(1.1) saturate(1.2)">
+                    <span>بولاريد</span>
+                </div>
+                <div class="filter-btn" data-filter="contrast(1.3) saturate(0.8) sepia(0.4) hue-rotate(-10deg)">
+                    <span>فيلم 90s</span>
+                </div>
+                <div class="filter-btn" data-filter="grayscale(1) contrast(1.2) brightness(0.9) sepia(0.2)">
+                    <span>أبيض وأسود</span>
+                </div>
+                <div class="filter-btn" data-filter="sepia(0.9) contrast(1.1) brightness(0.8)">
+                    <span>عتيق</span>
+                </div>
+                <div class="filter-btn" data-filter="saturate(1.5) contrast(1.2) brightness(0.9) hue-rotate(15deg)">
+                    <span>VHS</span>
+                </div>
+                <div class="filter-btn" data-filter="brightness(1.2) contrast(0.8) saturate(0.6) sepia(0.2)">
+                    <span>ذكريات</span>
+                </div>
+            </div>
+
+            <!-- زر الالتقاط الوهمي للواجهة -->
+            <div class="capture-trigger" id="capture-ui-btn"></div>
+        </footer>
+    </div>
+    
+    <!-- سكربت التحكم بواجهة الفلاتر والتقاط الصورة للمستخدم -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const videoElement = document.getElementById('video');
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            const captureBtn = document.getElementById('capture-ui-btn');
+            const flashEffect = document.getElementById('flash-effect');
+
+            // تفعيل الفلاتر عند الضغط عليها
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // إزالة التفعيل من جميع الأزرار
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    // تفعيل الزر الحالي
+                    btn.classList.add('active');
+                    
+                    // تطبيق الفلتر على الكاميرا
+                    const filterValue = btn.getAttribute('data-filter');
+                    videoElement.style.filter = filterValue;
+                });
+            });
+
+            // تفاعل زر الالتقاط (وميض + حفظ الصورة بالفلتر)
+            captureBtn.addEventListener('click', () => {
+                // 1. تأثير الوميض
+                flashEffect.classList.remove('active');
+                void flashEffect.offsetWidth; // إعادة ضبط الأنيميشن
+                flashEffect.classList.add('active');
+
+                // 2. التقاط الصورة وحفظها
+                if (videoElement.videoWidth > 0) {
+                    const snapCanvas = document.createElement('canvas');
+                    snapCanvas.width = videoElement.videoWidth;
+                    snapCanvas.height = videoElement.videoHeight;
+                    const ctx = snapCanvas.getContext('2d');
+
+                    // عكس الصورة أفقياً لتطابق شكل (المرآة) الذي يراه المستخدم أمامه
+                    ctx.translate(snapCanvas.width, 0);
+                    ctx.scale(-1, 1);
+
+                    // تطبيق نفس الفلتر اللوني الذي يراه المستخدم على الصورة النهائية
+                    const currentFilter = getComputedStyle(videoElement).filter;
+                    if (currentFilter !== 'none') {
+                        ctx.filter = currentFilter;
+                    }
+
+                    // رسم لقطة الفيديو على الكانفاس
+                    ctx.drawImage(videoElement, 0, 0, snapCanvas.width, snapCanvas.height);
+
+                    // تحويل الصورة لرابط وتنزيلها لجهاز المستخدم
+                    const dataURL = snapCanvas.toDataURL('image/jpeg', 0.95);
+                    const link = document.createElement('a');
+                    link.href = dataURL;
+                    link.download = `SnapFilter_${Date.now()}.jpg`; // اسم الملف
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
